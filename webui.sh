@@ -258,6 +258,8 @@ else
   echo "CSV file '$CSV_FILE' does not exist. Skipping model downloads."
 fi
 
+MAX_RESTARTS=2  # set the number of max restarts
+RESTART_COUNT=0
 KEEP_GOING=1
 export SD_WEBUI_RESTART=tmp/restart
 while [[ "$KEEP_GOING" -eq "1" ]]; do
@@ -275,7 +277,26 @@ while [[ "$KEEP_GOING" -eq "1" ]]; do
         "${python_cmd}" -u "${LAUNCH_SCRIPT}" "$@"
     fi
 
-    if [[ ! -f tmp/restart ]]; then
-        KEEP_GOING=0
+    # Check if the last command was killed
+    if [ $? -eq 137 ]; then
+        RESTART_COUNT=$((RESTART_COUNT+1))
+        if [ $RESTART_COUNT -le $MAX_RESTARTS ]; then
+            printf "\n%s\n" "${delimiter}"
+            printf "Restart count: %s" "$RESTART_COUNT" # <- This line logs out the restart count
+            printf "Process was killed. Restarting..."
+            printf "\n%s\n" "${delimiter}"
+            sleep 5  # delay for 5 seconds before restart
+            printf "Restart count left: %d\n" $((RESTART_LIMIT - RESTART_COUNT))
+
+        else
+            printf "\n%s\n" "${delimiter}"
+            printf "Max restart limit reached. Exiting..."
+            printf "\n%s\n" "${delimiter}"
+            KEEP_GOING=0
+        fi
+    else
+        if [[ ! -f tmp/restart ]]; then
+            KEEP_GOING=0
+        fi
     fi
 done
